@@ -10,6 +10,11 @@ Resume from "Next actions" below.
 - **Document titles end in `DRAFT` (all caps)** while in draft status —
   applies to every titled doc in this repo (the H1). Carry this into any
   new doc created here, and strip `DRAFT` only when a doc is finalized.
+- **Don't use the phrases "happy path" or "negative testing" in the
+  deliverables** — those were the user's scoping instruction, not document
+  language. Describe scope substantively instead (verify the correct
+  notification fires with the right recipient/channel/cadence/content;
+  suppression/opt-out/edge states are out of scope).
 
 ## Project context
 
@@ -121,7 +126,7 @@ Practical filter:
 cf logs <environment under test> | grep -iE 'sent|did not send|MAILER|notif'
 ```
 
-### Email-preferences precondition (CRITICAL for happy-path)
+### Email-preferences precondition (CRITICAL)
 
 A send only happens if the **recipient's** notification preferences are
 set to send. Two gotchas confirmed with dev:
@@ -132,7 +137,7 @@ set to send. Two gotchas confirmed with dev:
    not set or marked as "no-send"` and **no email fires** — looks like a
    failure but is expected.
 
-So before testing a happy-path **email** row, the recipient account must
+So before testing an **email** row, the recipient account must
 have a qualifying role, a **verified email**, and prefs set to send. (Our
 `test.tta.fletcher` was defaulting to notifications **off**, which is why
 the first send attempt logged "Did not send".)
@@ -269,14 +274,15 @@ Cleanup (TTAHUB-5389): a scheduled job **deletes notifications older than
 5. **Test matrix split per category** — six MD files, one per category,
    rather than a single 174-row table. Each maps 1:1 to a Confluence
    child page.
-6. **Happy-path verification only** (2026-06-04). The documented plan
-   covers happy-path verification — the correct notification fires with
-   the right recipient, channel, cadence, and content. **All negative
-   testing** (suppression / non-delivery, opt-out, bystander, error/edge
-   states) is **ad hoc and intentionally undocumented** in the plan and
-   matrices. Removed from the plan accordingly: the bystander roster
-   account, the negative-case step in the execution flow, and the
-   preference-change / collaborator-removed suppression checks.
+6. **Scope: verify correct delivery only** (2026-06-04, per user). The
+   documented plan verifies the correct notification fires with the right
+   recipient, channel, cadence, and content. Suppression / non-delivery,
+   opt-out, bystander, and error/edge states are **out of the documented
+   scope** (handled ad hoc, outside these deliverables). Removed
+   accordingly: the bystander roster account, the suppression-check step in
+   the execution flow, and the preference-change / collaborator-removed
+   checks. (See Conventions: don't use the phrases "happy path" / "negative
+   testing" in the deliverables.)
 
 ## Artifacts produced
 
@@ -406,26 +412,33 @@ Carried over from the design spec; flagged in `manual/test-plan.md`:
   the linked Jira tickets.
 - Two user-ID spaces exist (HSES id vs internal TTA Hub id) — but recipient
   is **not** in logs, so the ids are for roster / inbox confirmation only.
-- **Lower envs incl. staging use OBFUSCATED data that refreshes on weekends**
-  (confirmed 2026-06-04). Users/internal-IDs/emails/grantee-data/report-IDs
-  today are invalid after the refresh. **Only stable anchor: the team's 8
-  HSES test logins** (e.g. `test.tta.fletcher`) — they persist and are
-  recreated in the Hub on login (new internal id each time). ⇒ **No static
-  roster**; self-provision at test time, re-run setup each Monday, never
-  hardcode IDs/emails/report-IDs. Tester can set the email on any account to
-  an owned inbox (enables spot-checks).
+- **Test-account model (confirmed 2026-06-04):**
+  - **One driving login: the tester's own** (e.g. `test.tta.fletcher`). The
+    shared 8 team logins are reliable **only locally**; in the lowers their
+    real owners are using them — treat as off-limits.
+  - **Other actors via the ADMIN TOOL** — tester can set any user's role /
+    region / permissions / email and **impersonate** them to drive their
+    trigger (no second human/login). Plus self-serve where the flow allows
+    (e.g. self as approver). This makes the whole plan single-tester.
+  - **Local** = imported **production data, NO obfuscation**.
+  - **Lowers incl. staging** = **obfuscated data, refreshes on weekends**;
+    IDs/emails/grantee-data/report-IDs rotate → provision + impersonate
+    obfuscated users at test time within the pre-reset window.
+  - ⇒ **No static roster; never hardcode** IDs/emails/report-IDs; in the
+    lowers re-run setup each Monday.
 
 ## Next actions (pick up here on resume)
 
 User had asked which of four MD follow-ups to draft next. None
 selected yet. All would be MD files in `manual/`:
 
-1. **Session setup checklist** (replaces the old "static roster" idea —
-   obsolete given the weekend obfuscation refresh). A Confluence child page:
-   the 8 stable HSES logins + the per-session steps to (re)establish each
-   actor — log in, capture current internal id, set qualifying role, set
-   email to an owned inbox + verify, set prefs to send, create fixtures.
-   Re-run after each weekend refresh.
+1. **Session setup checklist** (replaces the old "static roster" idea). A
+   Confluence child page with the per-session steps using the **admin tool**:
+   for each actor a scenario needs — pick/provision a user (set role / region
+   / permissions / email), note current internal id, set prefs to send, create
+   fixtures, and **impersonate** to drive that party's trigger. Local = against
+   imported prod data; lowers = obfuscated users, re-run after each weekend
+   refresh.
 2. **`cf logs` log-check cheatsheet** — copy-pasteable grep templates
    (by report id, by action key, sent vs "did not send", `MAILER:` lines)
    plus the email-preferences precondition checklist. (Was "Datadog
@@ -442,7 +455,7 @@ Immediate next steps (highest value):
 - **DONE:** enum + inventory extracted from PR #3665 and applied to all six
   matrices' `Verify` columns.
 - **Set up a qualifying-role test account with prefs ON** (email verified)
-  so happy-path email rows actually send rather than logging "Did not
+  so email rows actually send rather than logging "Did not
   send". (Matt set `test.tta.fletcher` as ECM on dev-blue as an example.)
 - **Confirm `actionable_notifications` flag is ON** on dev-blue, then verify
   the in-app rows against the `Notifications` table / notification center as

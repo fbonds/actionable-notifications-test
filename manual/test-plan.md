@@ -24,11 +24,10 @@ In scope for this round: all rows with status **Proposed** or **Published**
 (≈150). Out of scope: rows marked **Out of scope** (6) and **Paused** TR
 reminders (18) — re-evaluate when status changes.
 
-**Happy-path only.** This plan documents **happy-path verification only** —
-that the correct notification fires with the right recipient, channel,
-cadence, and content. **All negative testing** (suppression / non-delivery,
-opt-out behavior, bystander checks, error and edge states) is performed
-**ad hoc and is intentionally not documented** here or in the matrices.
+**Scope.** This plan and the matrices verify that the **correct notification
+fires with the right recipient, channel, cadence, and content.** Confirming
+that a notification is correctly *suppressed* (opt-outs, non-delivery),
+along with error and edge states, is **out of scope** here.
 
 ## Approach
 
@@ -97,7 +96,7 @@ Two-layer manual process:
 | Question | Approach |
 |---|---|
 | **How do we test emails?** | Bulk: `cf logs` grep against the dispatch event. Spot-check: owned inboxes via the per-release checklist. |
-| **How do we handle roles, approvers, etc.?** | **Self-provision at test time** from the team's **8 stable HSES test logins** (e.g. `test.tta.fletcher`) — these persist across refreshes; the tester assigns them the needed parts (Creator, Collaborator, Approver 1/2, POC, etc.) per scenario. Internal IDs, emails, grantee data, and report IDs **rotate on the weekend refresh** and are **never hardcoded** — capture them fresh each session. See *Preconditions* and *Test data & environment refresh*. |
+| **How do we handle roles, approvers, etc.?** | **One driving login (your own, e.g. `test.tta.fletcher`) + the admin tool.** For any other party a scenario needs (Creator, Collaborator, Approver 1/2, POC, etc.), use the admin tool to set that user's **role / region / permissions / email** and to **impersonate** them to perform their trigger — no second human or shared login required (you can also self-serve where the flow allows, e.g. add yourself as approver). *Local:* real users from imported production data. *Lowers:* obfuscated data users provisioned at test time. IDs/emails/report IDs are session-scoped — never hardcoded. See *Test data & environment refresh* and *Preconditions*. |
 | **How do we test email verification (arrival / rendering)?** | Covered by the spot-check checklist — testers visually inspect subject, body, links, and CTA in the actual inbox for the curated subset. Not attempted for the full 174. |
 
 ## Master test matrix
@@ -120,11 +119,9 @@ Each page has the same columns:
 - **Spec columns** (sourced from the design spreadsheet): ID, Status,
   Channel, Role (actor), Trigger, Received by, Expected subject /
   in-app content, CTA.
-- **Execution helper**: pre-filled `cf logs … | grep` template — tester
-  substitutes the expected recipient's id. **TBD (pending log capture):**
-  the grep pattern and which id space to substitute (HSES vs internal).
-  Currently the matrix files still hold the old Datadog syntax; they will
-  be regenerated once one real notification line is captured.
+- **Verify** column: per row, the in-app `Notifications.type` or the email
+  `cf logs … | grep` (action key / report `displayId`) — see each matrix's
+  intro note for the live-vs-planned scheme.
 - **Execution tracking**: Logged-in as, Pass / Fail, Tester, Build, Notes.
 
 > When the design spreadsheet changes, regenerate the per-category MD
@@ -150,36 +147,42 @@ subsystems with different verification surfaces:
 
 ## Test data & environment refresh
 
-The lower environments **including staging use obfuscated data that refreshes
-on weekends** — users, internal IDs, emails, grantee data, and report IDs
-present today are **not valid after the refresh**. The **only stable anchor**
-is the team's **8 HSES test logins** (e.g. `test.tta.fletcher`), which persist
-and are recreated in the Hub on login (with a *new* internal ID each refresh).
+Two modes, depending on environment:
 
-Consequences, baked into the plan:
+- **Local** — production data is imported directly (**no obfuscation**). Drive
+  from your own login and use the admin tool to set up / impersonate any other
+  party from the real user data.
+- **Lowers (dev/staging)** — **obfuscated data that refreshes on weekends**;
+  users, internal IDs, emails, grantee data, and report IDs present today are
+  **not valid after the refresh**. The shared team logins are off-limits (their
+  real owners use them), so other actors are **obfuscated users you provision
+  and impersonate via the admin tool** within the pre-reset window.
+
+Either way, the one constant is **your own login**. Consequences baked into the
+plan:
 - **Never hardcode** internal user IDs, emails, or report `displayId`s — they
-  are session-scoped. Capture them fresh during setup, verify against the
+  are session-scoped. Capture them fresh during setup; verify against the
   report you create *this session*.
-- The **setup checklist below is re-run after each weekend refresh** (≈ every
-  Monday), not "once."
+- In the lowers, **re-run setup after each weekend refresh** (≈ Monday).
 
-## Preconditions (re-run each session / after each weekend refresh)
+## Preconditions (re-run per session; in the lowers, after each weekend refresh)
 
 - **In-app:** the **`actionable_notifications` feature flag must be ON** in
   the environment under test (confirm per env).
-- **Email:** a send only happens if the **recipient's** preferences allow it —
-  otherwise the worker logs `Did not send … no-send` and nothing fires
-  (expected, not a bug). For each HSES login you'll use as a recipient:
-  - log in (this (re)creates the Hub user); **capture its current internal
-    id**;
-  - ensure a **qualifying role** (the email-preferences UI only appears for
-    certain roles — e.g. ECM);
-  - set its **email** to an inbox you own (you can set email for any account)
-    and **verify** it;
-  - set notification **preferences to send** for the event (default can be
-    off).
-- **Fixtures:** create the report(s)/relationships the scenario needs from
-  these logins — don't rely on pre-existing data.
+- **Provision each actor the scenario needs** (recipient, approver, etc.) with
+  the **admin tool** — set role / region / permissions, set **email** to an
+  inbox you own, and note that user's **current internal id**. Locally these
+  are real imported-prod users; in the lowers, obfuscated users.
+- **Email sends require the recipient's prefs to allow it** — otherwise the
+  worker logs `Did not send … no-send` and nothing fires (expected, not a
+  bug). So also ensure the recipient has a **qualifying role** (the
+  email-preferences UI only appears for certain roles — e.g. ECM) and set its
+  **preferences to send** (default can be off).
+- **Drive each party's trigger by impersonating that user** via the admin tool
+  (no second login), or self-serve where the flow allows (e.g. add yourself as
+  approver).
+- **Fixtures:** create the report(s)/relationships the scenario needs at test
+  time — don't rely on pre-existing data.
 
 ## Per-test execution flow
 
@@ -222,9 +225,9 @@ checklist rather than repeated 174 times:
 - **Header bell badge count** updates on new active notifications and
   decrements on dismissal.
 
-> Negative/suppression behaviors (e.g. opt-out non-delivery, collaborator
-> removed mid-flight, dismissal edge cases) are **not** part of the
-> documented checks — they're handled ad hoc per the Scope note.
+> Suppression behaviors (opt-out non-delivery, collaborator removed
+> mid-flight, dismissal edge cases) are **out of scope** for these checks —
+> see the Scope note.
 
 ## Time-driven triggers — special handling
 
@@ -306,10 +309,13 @@ test interpretation:
   logs for `<environment under test>` and its worker app in the relevant
   lower env. Command reference + environment list:
   [`cf-cli-basics.md`](./cf-cli-basics.md).
-- The team's **8 stable HSES test logins** (e.g. `test.tta.fletcher`) — the
-  only data that survives the weekend refresh; used as all test actors.
-- **Owned Gmail/Outlook inbox(es)** to point a login's email at for the
-  spot-check rows (you can set email for any account).
+- **Your own HSES login** (e.g. `test.tta.fletcher`) — the one reliable
+  identity in every env (the shared team logins are off-limits in the lowers).
+- **Admin tool** — to set any user's role / region / permissions / email and
+  to **impersonate** them for multi-party triggers.
+- **Owned Gmail/Outlook inbox(es)** to point a recipient's email at for the
+  spot-check rows.
+- **Local** runs against **imported production data** (no obfuscation).
 - **Local Docker** for the time-driven specs (no remote trigger exists).
 
 ## Maintenance
