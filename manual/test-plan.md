@@ -31,65 +31,64 @@ along with error and edge states, is **out of scope** here.
 
 ## Approach
 
-Two-layer manual process:
+Two complementary layers:
 
-1. **Bulk verification via application-log inspection.** In lower
-   environments, notification emails are not actually sent — the dispatch
-   decision is logged. Testers trigger each scenario in the UI, then read the
-   Cloud Foundry app logs via the `cf` CLI to confirm the right event fired
-   with the right subject, recipient, channel, and cadence. This is the
-   source of truth for ~150 of the variations.
+1. **Log inspection — bulk (~150 variations; the source of truth).** In lower
+   environments emails are not actually sent — the dispatch *decision* is
+   logged. Trigger each scenario in the UI, then read the Cloud Foundry app
+   logs via the `cf` CLI to confirm the right event fired. Details in
+   *Reading the logs* below.
+2. **Spot-check real delivery (~11 messages per release).** Send to owned
+   Gmail/Outlook inboxes to catch rendering and deliverability regressions
+   that logs cannot (logs carry no subject/recipient). See
+   *Per-release spot-check*.
 
-   Log access (confirmed):
+## Reading the logs
 
-   ```
-   cf login --sso
-   cf logs <environment under test> --recent   # dump recent buffer
-   cf logs <environment under test>            # tail live
-   cf apps                                   # find the worker app — the
-                                             # mailer likely runs there, not
-                                             # in the web process
-   ```
+### Access
 
-   `<environment under test>` = the CF app for the environment you're
-   testing. See [`cf-cli-basics.md`](./cf-cli-basics.md) for the full list
-   of values and which to use when (inter-sprint vs end-to-end vs RC).
+```
+cf login --sso
+cf logs <environment under test> --recent   # dump recent buffer, then exit
+cf logs <environment under test>            # tail live
+cf apps                                      # find the worker app (mailer runs there)
+```
 
-   Logs are Winston JSON lines prefixed by a CF source tag
-   (`[APP/PROC/WEB/0]`, `[RTR/n]`, `[APP/PROC/WORKER/0]`) with fields
-   `level`, `message` (free text), `timestamp`, and a `label` taxonomy
-   (`AUDIT` / `REQUEST` / `RTR`). There is **no** structured event
-   envelope — checks grep the `message` string.
+`<environment under test>` = the CF app for the environment under test — see
+[`cf-cli-basics.md`](./cf-cli-basics.md) for the list and which to use when.
 
-   **Confirmed with dev (2026-06-04).** Notification email jobs run in the
-   **`WORKER`** process and emit these lines:
+### Log shape
 
-   - **Sent:** `Successfully sent <actionKey> notification for <REPORT-ID>`
-     (e.g. `… collaboratorAssigned notification for R11-AR-63753`) — carries
-     the action key **and report display id**.
-   - **Human-readable:** `MAILER: Notifying users that report <REPORT-ID>
-     was approved.`
-   - **Suppressed:** `Did not send <actionKey> notification for <REPORT-ID>
-     preferences are not set or marked as "no-send"`.
-   - **Timing:** `notify<Action> <actionKey> execution time: Nms`.
+Winston JSON lines prefixed by a CF source tag (`[APP/PROC/WEB/0]`,
+`[RTR/n]`, `[APP/PROC/WORKER/0]`), with fields `level`, `message` (free
+text), `timestamp`, and a `label` taxonomy (`AUDIT` / `REQUEST` / `RTR`).
+There is **no** structured event envelope — checks grep the `message` string.
 
-   Key facts:
-   - Logs at the **decision point** — *sent* and *suppressed* both log
-     (with reason). A "Did not send … no-send" is expected when the
-     recipient's prefs are off (see Preconditions).
-   - **Recipient, subject, channel, and cadence are NOT logged.** The log
-     confirms the action fired for a report id; recipient/subject are
-     verified only via the spot-check inbox.
-   - Grep handle: the **report display id** (isolates all activity for the
-     report under test) and/or the action key.
-   - **No remote trigger** for scheduled/digest notifications — local only
-     (see Time-driven triggers).
-   - **In-app** notifications: dev spoke strictly about emails; whether
-     in-app logs at all is still open — in-app rows verify in the
-     notification center for now.
-2. **Spot-check real delivery in staging.** A short per-release checklist
-   (~11 messages) sends to owned Gmail and Outlook inboxes to catch
-   rendering and deliverability regressions that log inspection cannot.
+### Notification lines (email — confirmed with dev, 2026-06-04)
+
+Email jobs run in the **`WORKER`** process and emit:
+
+| Type | Line |
+|---|---|
+| **Sent** | `Successfully sent <actionKey> notification for <REPORT-ID>` |
+| **Human-readable** | `MAILER: Notifying users that report <REPORT-ID> was approved.` |
+| **Suppressed** | `Did not send <actionKey> notification for <REPORT-ID> preferences are not set or marked as "no-send"` |
+| **Timing** | `notify<Action> <actionKey> execution time: Nms` |
+
+### What the logs do and don't tell you
+
+- **Decision point.** *Sent* and *suppressed* both log (with reason). A
+  "Did not send … no-send" means the recipient's prefs are off (see
+  *Preconditions*) — expected, not a failure.
+- **No recipient / subject / channel / cadence in the log** — confirm those
+  via the spot-check inbox.
+- **Grep handle:** the report **`displayId`** (isolates all activity for the
+  report under test) and/or the action key.
+- **No remote trigger** for scheduled/digest notifications — local only (see
+  *Time-driven triggers*).
+- **In-app notifications don't appear here** — they're rows in the
+  `Notifications` table; verify via the notification center (see
+  *Two subsystems*).
 
 ## How we test the three core questions
 
