@@ -97,7 +97,7 @@ Two-layer manual process:
 | Question | Approach |
 |---|---|
 | **How do we test emails?** | Bulk: `cf logs` grep against the dispatch event. Spot-check: owned inboxes via the per-release checklist. |
-| **How do we handle roles, approvers, etc.?** | Pre-provisioned **test account roster** per lower environment (link to child page). One Creator, Collaborator, Approver 1/2, TTAC, Manager, Program Specialist, Regional POC, group co-owner/receiver. Same accounts every release. Roster must record **both** the HSES id and the internal TTA Hub id for each account (logs use two id spaces — see execution flow), plus email and region. |
+| **How do we handle roles, approvers, etc.?** | **Self-provision at test time** from the team's **8 stable HSES test logins** (e.g. `test.tta.fletcher`) — these persist across refreshes; the tester assigns them the needed parts (Creator, Collaborator, Approver 1/2, POC, etc.) per scenario. Internal IDs, emails, grantee data, and report IDs **rotate on the weekend refresh** and are **never hardcoded** — capture them fresh each session. See *Preconditions* and *Test data & environment refresh*. |
 | **How do we test email verification (arrival / rendering)?** | Covered by the spot-check checklist — testers visually inspect subject, body, links, and CTA in the actual inbox for the curated subset. Not attempted for the full 174. |
 
 ## Master test matrix
@@ -148,18 +148,38 @@ subsystems with different verification surfaces:
   recipient/content, unlike email logs. The in-app `NOTIFICATION_TYPE`
   values are TBD until implemented.
 
-## Preconditions (set once)
+## Test data & environment refresh
+
+The lower environments **including staging use obfuscated data that refreshes
+on weekends** — users, internal IDs, emails, grantee data, and report IDs
+present today are **not valid after the refresh**. The **only stable anchor**
+is the team's **8 HSES test logins** (e.g. `test.tta.fletcher`), which persist
+and are recreated in the Hub on login (with a *new* internal ID each refresh).
+
+Consequences, baked into the plan:
+- **Never hardcode** internal user IDs, emails, or report `displayId`s — they
+  are session-scoped. Capture them fresh during setup, verify against the
+  report you create *this session*.
+- The **setup checklist below is re-run after each weekend refresh** (≈ every
+  Monday), not "once."
+
+## Preconditions (re-run each session / after each weekend refresh)
 
 - **In-app:** the **`actionable_notifications` feature flag must be ON** in
   the environment under test (confirm per env).
-- **Email:** a send only happens if the **recipient's** preferences allow
-  it — otherwise the worker logs `Did not send … no-send` and nothing fires
-  (expected, not a bug). For each recipient account confirm:
-  - a **qualifying role** (the email-preferences UI only appears for certain
-    roles — e.g. ECM);
-  - **email verified**;
-  - notification **preferences set to send** for the event (default can be
+- **Email:** a send only happens if the **recipient's** preferences allow it —
+  otherwise the worker logs `Did not send … no-send` and nothing fires
+  (expected, not a bug). For each HSES login you'll use as a recipient:
+  - log in (this (re)creates the Hub user); **capture its current internal
+    id**;
+  - ensure a **qualifying role** (the email-preferences UI only appears for
+    certain roles — e.g. ECM);
+  - set its **email** to an inbox you own (you can set email for any account)
+    and **verify** it;
+  - set notification **preferences to send** for the event (default can be
     off).
+- **Fixtures:** create the report(s)/relationships the scenario needs from
+  these logins — don't rely on pre-existing data.
 
 ## Per-test execution flow
 
@@ -243,8 +263,10 @@ cadence matches lower envs. This drives the local-Docker runbook (TBD).
 
 ## Per-release spot-check (live email delivery)
 
-Run in staging against owned Gmail + Outlook accounts, once per release.
-Goal is rendering and deliverability — not coverage.
+Run in staging once per release. Goal is rendering and deliverability — not
+coverage. Because data is obfuscated, **set the recipient HSES login's email
+to an inbox you own** (Gmail/Outlook) during setup, then trigger — the email
+lands in your inbox. Re-do after each weekend refresh.
 
 | # | Spec | Why it's on the list |
 |---|---|---|
@@ -284,11 +306,11 @@ test interpretation:
   logs for `<environment under test>` and its worker app in the relevant
   lower env. Command reference + environment list:
   [`cf-cli-basics.md`](./cf-cli-basics.md).
-- **Lower-env access** with the test-account credentials (see
-  Test Account Roster child page).
-- **Staging access** + owned Gmail/Outlook addresses for spot-checks.
-- **Admin endpoint / clock-advance tool** for time-driven triggers
-  (pending dev confirmation).
+- The team's **8 stable HSES test logins** (e.g. `test.tta.fletcher`) — the
+  only data that survives the weekend refresh; used as all test actors.
+- **Owned Gmail/Outlook inbox(es)** to point a login's email at for the
+  spot-check rows (you can set email for any account).
+- **Local Docker** for the time-driven specs (no remote trigger exists).
 
 ## Maintenance
 

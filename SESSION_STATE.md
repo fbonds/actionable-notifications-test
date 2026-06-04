@@ -406,16 +406,26 @@ Carried over from the design spec; flagged in `manual/test-plan.md`:
   the linked Jira tickets.
 - Two user-ID spaces exist (HSES id vs internal TTA Hub id) — but recipient
   is **not** in logs, so the ids are for roster / inbox confirmation only.
+- **Lower envs incl. staging use OBFUSCATED data that refreshes on weekends**
+  (confirmed 2026-06-04). Users/internal-IDs/emails/grantee-data/report-IDs
+  today are invalid after the refresh. **Only stable anchor: the team's 8
+  HSES test logins** (e.g. `test.tta.fletcher`) — they persist and are
+  recreated in the Hub on login (new internal id each time). ⇒ **No static
+  roster**; self-provision at test time, re-run setup each Monday, never
+  hardcode IDs/emails/report-IDs. Tester can set the email on any account to
+  an owned inbox (enables spot-checks).
 
 ## Next actions (pick up here on resume)
 
 User had asked which of four MD follow-ups to draft next. None
 selected yet. All would be MD files in `manual/`:
 
-1. **Test account roster template** — Confluence child page with a table
-   per lower env (dev, staging) listing test users by role, with
-   placeholders for email, user ID, password reference, group
-   membership.
+1. **Session setup checklist** (replaces the old "static roster" idea —
+   obsolete given the weekend obfuscation refresh). A Confluence child page:
+   the 8 stable HSES logins + the per-session steps to (re)establish each
+   actor — log in, capture current internal id, set qualifying role, set
+   email to an owned inbox + verify, set prefs to send, create fixtures.
+   Re-run after each weekend refresh.
 2. **`cf logs` log-check cheatsheet** — copy-pasteable grep templates
    (by report id, by action key, sent vs "did not send", `MAILER:` lines)
    plus the email-preferences precondition checklist. (Was "Datadog
