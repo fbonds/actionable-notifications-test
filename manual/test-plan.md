@@ -1,8 +1,8 @@
 # TTAHUB Actionable Notifications — Manual Test Plan DRAFT
 
 > Paste this into the top-level Confluence page. Sub-sections that grow long
-> (account roster, log-query cheatsheet, per-release spot-check log) belong on
-> linked child pages rather than inline.
+> (session setup checklist, per-release spot-check log, local-Docker runbook)
+> belong on linked child pages rather than inline.
 
 ## Scope
 
@@ -24,10 +24,10 @@ In scope for this round: all rows with status **Proposed** or **Published**
 (≈150). Out of scope: rows marked **Out of scope** (6) and **Paused** TR
 reminders (18) — re-evaluate when status changes.
 
-**Scope.** This plan and the matrices verify that the **correct notification
-fires with the right recipient, channel, cadence, and content.** Confirming
-that a notification is correctly *suppressed* (opt-outs, non-delivery),
-along with error and edge states, is **out of scope** here.
+This plan and the matrices verify that the **correct notification fires with
+the right recipient, channel, cadence, and content.** Confirming that a
+notification is correctly *suppressed* (opt-outs, non-delivery), along with
+error and edge states, is **out of scope** here.
 
 ## Approach
 
@@ -95,7 +95,7 @@ Email jobs run in the **`WORKER`** process and emit:
 | Question | Approach |
 |---|---|
 | **How do we test emails?** | Bulk: `cf logs` grep against the dispatch event. Spot-check: owned inboxes via the per-release checklist. |
-| **How do we handle roles, approvers, etc.?** | **One driving login (your own, e.g. `test.tta.fletcher`) + the admin tool.** For any other party a scenario needs (Creator, Collaborator, Approver 1/2, POC, etc.), use the admin tool to set that user's **role / region / permissions / email** and to **impersonate** them to perform their trigger — no second human or shared login required (you can also self-serve where the flow allows, e.g. add yourself as approver). *Local:* real users from imported production data. *Lowers:* obfuscated data users provisioned at test time. IDs/emails/report IDs are session-scoped — never hardcoded. See *Test data & environment refresh* and *Preconditions*. |
+| **How do we handle roles, approvers, etc.?** | **One login (your own) + the admin tool.** For any other party a scenario needs, use the admin tool to set that user's role / region / permissions / email and to **impersonate** them for their trigger (or self-serve where the flow allows). No second human or shared login. Full mechanics in *Test data & environment refresh* and *Preconditions*. |
 | **How do we test email verification (arrival / rendering)?** | Covered by the spot-check checklist — testers visually inspect subject, body, links, and CTA in the actual inbox for the curated subset. Not attempted for the full 174. |
 
 ## Master test matrix
@@ -141,8 +141,9 @@ subsystems with different verification surfaces:
   **`actionable_notifications`**; verify in the **notification center UI**
   (or query the table). The table stores `userId` (recipient), `type`,
   `text`, `link`, `viewedAt`, `archivedAt` — so in-app rows *can* verify
-  recipient/content, unlike email logs. The in-app `NOTIFICATION_TYPE`
-  values are TBD until implemented.
+  recipient/content, unlike email logs. Each matrix row's in-app `type` is
+  filled from `NOTIFICATION_TYPES`; firing is gated by
+  `NOTIFICATION_CONFIGURATION` (only 2 types wired so far — see matrix notes).
 
 ## Test data & environment refresh
 
@@ -191,9 +192,9 @@ For each row in the matrix:
    Grep by the report's display id to catch everything, and/or the row's
    action key — e.g.
    `cf logs <environment under test> | grep -E 'R01-AR-63792|changesRequested'`.
-2. Log in as the *Role (actor)* using the account from the roster.
-3. Perform the *Trigger* against a known fixture report (per-category
-   fixtures listed on child pages).
+2. Become the *Role (actor)* — impersonate the provisioned user via the
+   admin tool (or self-serve where the flow allows).
+3. Perform the *Trigger* against a fixture report you created this session.
 4. Confirm `Successfully sent <actionKey> notification for <REPORT-ID>`
    appears within ~30 seconds. (A `Did not send … no-send` line means the
    recipient's prefs are off — fix per Preconditions, not a row failure.)
@@ -218,8 +219,8 @@ checklist rather than repeated 174 times:
   filter); pagination; CTA links route to correct resource. Confirmed
   mechanics (spike): **user dismiss/mark-read** = `updateNotification`
   (`viewedAt`/`archivedAt`); **system auto-clear** of stale notifications on
-  a state change = `deleteNotificationsByEntityAndType`; **30-day cutoff** =
-  a scheduled cleanup job that deletes older notifications; users see **only
+  a state change = `deleteNotification` (scoped); **30-day cutoff** = a
+  scheduled cleanup job that deletes older notifications; users see **only
   their own**; admins create **global** notifications.
 - **Header bell badge count** updates on new active notifications and
   decrements on dismissal.
@@ -266,9 +267,9 @@ cadence matches lower envs. This drives the local-Docker runbook (TBD).
 ## Per-release spot-check (live email delivery)
 
 Run in staging once per release. Goal is rendering and deliverability — not
-coverage. Because data is obfuscated, **set the recipient HSES login's email
-to an inbox you own** (Gmail/Outlook) during setup, then trigger — the email
-lands in your inbox. Re-do after each weekend refresh.
+coverage. Because data is obfuscated, **set the recipient's email to an inbox
+you own** (Gmail/Outlook) during setup, then trigger — the email lands in your
+inbox. Re-do after each weekend refresh.
 
 | # | Spec | Why it's on the list |
 |---|---|---|

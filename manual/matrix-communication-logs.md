@@ -1,6 +1,6 @@
 # Test Matrix — Communication Logs DRAFT
 
-> Source of truth: design spreadsheet *TTA Hub Notifications.xlsx*. 
+> Source of truth: design spreadsheet *TTA Hub Notifications.xlsx*.
 > Regenerate this page when the spec changes — see the top-level test plan for maintenance notes.
 
 **Rows:** 6 · **Verify** column (per TTAHUB-5383 / PR #3665):

@@ -12,8 +12,10 @@
 >   that one: log lines tagged `[APP/PROC/WORKER/0]`.
 > - Grep by the **action key** in the log `message` (e.g. `changesRequested`,
 >   `collaboratorAssigned`, `approverAssigned`, `reportApproved`, and the
->   `trainingReport*` / `*Digest` variants). One action key can map to several
->   matrix rows — recipient/channel still distinguish the exact row.
+>   `trainingReport*` / `*Digest` variants), and/or by the report
+>   **`displayId`**. One action key can map to several matrix rows;
+>   **recipient/subject/channel are not logged**, so confirm those via the
+>   per-release spot-check.
 > - Environments (app names) — pick the one matching the build under test;
 >   the commands are identical for all:
 >   - `tta-smarthub-staging` (staging; this cheat sheet's examples)
