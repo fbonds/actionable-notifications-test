@@ -20,6 +20,7 @@
 >   are configured; other `type`s throw until registered, and a call site
 >   must invoke `createNotification`. So most in-app rows aren't creatable
 >   yet — they light up as config + call sites land.
+> - Bracketed `[…]` values in *Expected* (e.g. `[Report ID]`, `[Recipient name]`) are substituted at send time — see the **Placeholders** legend in the test plan.
 
 | ID | Status | Channel | Role (actor) | Trigger | Received by | Expected subject / in-app content | CTA | Verify (in-app table / email log) | Logged-in as | Pass / Fail | Tester | Build | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|

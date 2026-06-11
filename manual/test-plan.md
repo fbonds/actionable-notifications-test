@@ -123,6 +123,24 @@ Each page has the same columns:
   intro note for the live-vs-planned scheme.
 - **Execution tracking**: Logged-in as, Pass / Fail, Tester, Build, Notes.
 
+### Placeholders in the *Expected subject / in-app content* column
+
+Bracketed `[…]` values are **substituted at send time** — the real
+notification text carries the actual value. They're illustrative, not match
+targets: match on the surrounding literal text, and on the report you created
+this session (never on a fixed id).
+
+| Placeholder | Substituted with (format / example) |
+|---|---|
+| `[Report ID]` | The report's display id — `R<region>-AR-<n>` (AR), `R<region>-CR-<n>` (CR), `R<region>-TR-<yy>-<n>` (TR). e.g. `R14-AR-63792` |
+| `[Recipient name]` | Grant recipient (grantee) org name |
+| `[Activity name]` | The activity a Collaboration Report covers |
+| `[Creator's name]`, `[Collaborator's name]`, `[Approver 1 name]`, `[Approver 2 name]` | The relevant user's full name |
+| `[Session name]`, `[Event name]` | Training session / event name |
+| `[Group name]` | A "My group" name |
+| `[daily/weekly/monthly]` | The recipient's chosen digest cadence |
+| `[date through date]`, `[day, month, day]` | The outage window date(s) |
+
 > When the design spreadsheet changes, regenerate the per-category MD
 > files from the source JSON, then re-paste only the spec columns into
 > Confluence — preserve the execution-tracking columns by editing in
