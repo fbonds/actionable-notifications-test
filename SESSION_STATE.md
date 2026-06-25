@@ -271,9 +271,13 @@ Cleanup (TTAHUB-5389): a scheduled job **deletes notifications older than
 4. **Confluence is the destination.** All deliverables produced as MD files
    here; user pastes them into Confluence manually (no API access for
    Claude to push directly).
-5. **Test matrix split per category** — six MD files, one per category,
-   rather than a single 174-row table. Each maps 1:1 to a Confluence
-   child page.
+5. **Single monolithic document** (2026-06-25, per user; supersedes the
+   earlier per-category-child-page decision). Everything — scope, approach,
+   setup, execution flow, local-Docker runbook, and all six 174-row matrix
+   tables — lives in `manual/test-plan.md` and pastes into ONE Confluence
+   page. Rationale: child-page links confuse the nontechnical federal
+   audience that reviews the plan, and anything not in the main doc goes
+   undocumented in Confluence. No cross-page links in the deliverable.
 6. **Scope: verify correct delivery only** (2026-06-04, per user). The
    documented plan verifies the correct notification fires with the right
    recipient, channel, cadence, and content. Suppression / non-delivery,
@@ -288,16 +292,17 @@ Cleanup (TTAHUB-5389): a scheduled job **deletes notifications older than
 
 ### Manual (the active deliverable set — `manual/`)
 
-- `manual/test-plan.md` — top-level Confluence page. Scope, approach,
-  three-questions-answered, per-test execution flow, cross-cutting
-  checks, spot-check shortlist (11 messages), known open spec
-  questions, maintenance notes.
-- `manual/matrix-activity-reports.md` — 54 rows
-- `manual/matrix-collaboration-reports.md` — 50 rows
-- `manual/matrix-training-reports.md` — 53 rows
-- `manual/matrix-communication-logs.md` — 6 rows
-- `manual/matrix-other.md` — 8 rows (groups + monitoring)
-- `manual/matrix-system.md` — 3 rows (outages)
+- `manual/test-plan.md` — **the single monolithic deliverable** (one
+  Confluence page). Scope, approach, three-questions-answered, reading the
+  logs + environment list, per-test execution flow, cross-cutting checks,
+  time-driven/local-Docker runbook (inlined), spot-check shortlist (11
+  messages), known open spec questions, maintenance notes, AND all six
+  matrix tables inline (AR 54 · CR 50 · TR 53 · CL 6 · Other 8 · System 3 =
+  174 rows). The former per-category `matrix-*.md` files and
+  `local-docker-runbook.md` were folded in and removed.
+- `manual/cf-cli-basics.md` — personal `cf` dev reference; NOT part of the
+  plan and no longer linked from it (the notification-relevant log-reading
+  bits are inlined into test-plan.md). Kept for the tester's own use.
 
 Each matrix file = a Confluence-ready MD table with 14 columns:
 spec columns + pre-filled query template + empty execution-tracking
@@ -364,14 +369,18 @@ Carried over from the design spec; flagged in `manual/test-plan.md`:
    probably be tested on a **local Docker stack on the dev box** rather
    than CF, since scheduled jobs can be triggered directly locally
    (invoke the job, or seed back-dated reports) instead of waiting on the
-   real schedule. This creates a **second log context**: `docker compose
-   logs` locally vs `cf logs` for event-driven specs (same Winston lines
-   / action keys). **Confirmed with dev (2026-06-04): there is NO remote
+   real schedule. This creates a **second log context**: locally tail the
+   **backend** container (`docker compose -f docker/compose/docker-compose.yml
+   logs -f backend`) vs `cf logs` (worker) for event-driven specs — same
+   Winston lines / action keys. ⚠️ Locally cron / `runCronJobs()` runs in the
+   **backend** process (`src/app.js:174`), NOT the worker; deployed runs it
+   from the worker. **Confirmed with dev (2026-06-04): there is NO remote
    mechanism to trigger scheduled vs immediate notifications — "if you want
-   control, you'll need to do it locally."** So local Docker is the
-   approach, not a maybe. Still to work out locally: how to advance/trigger
-   each scheduled job (invoke job / seed back-dated reports / clock knob).
-   A local-Docker runbook is TBD.
+   control, you'll need to do it locally."** So local Docker is the approach,
+   not a maybe. **RESOLVED (runbook written):** advance/trigger each scheduled
+   job by editing the daily schedule in `src/lib/cron.js` to `* * * * *`
+   (requires `FORCE_CRON=true`); emails land in **Mailpit**. Full recipe in
+   `manual/local-docker-runbook.md`.
 7. **Notification log line — RESOLVED with dev (2026-06-04).** See the
    "Confirmed notification log lines" section above. Net: WORKER process;
    `Successfully sent <action> notification for <REPORT-ID>` / `Did not
@@ -429,8 +438,11 @@ Carried over from the design spec; flagged in `manual/test-plan.md`:
 
 ## Next actions (pick up here on resume)
 
-User had asked which of four MD follow-ups to draft next. None
-selected yet. All would be MD files in `manual/`:
+User had asked which of four follow-ups to draft next. None selected yet.
+**Per the 2026-06-25 monolithic decision, any of these now becomes a new
+SECTION inside `manual/test-plan.md`, not a separate child page/file.** Note
+#2 (cf logs cheatsheet) and #4 (local-Docker runbook) are now largely covered
+inside the plan already (Reading the logs / Time-driven triggers sections):
 
 1. **Session setup checklist** (replaces the old "static roster" idea). A
    Confluence child page with the per-session steps using the **admin tool**:
@@ -447,8 +459,9 @@ selected yet. All would be MD files in `manual/`:
    testers capture results for the 11-message shortlist with
    screenshots. (This is also where recipient/subject get verified, since
    logs don't carry them.)
-4. **Local-Docker runbook** — for the ~30 time-driven specs; document how
-   to trigger each scheduled job locally (confirmed: no remote mechanism).
+4. **Local-Docker runbook** — ✅ DONE: `manual/local-docker-runbook.md`
+   (user switching, on-demand digest triggering via `cron.js`, Mailpit
+   capture, backend-vs-worker process note).
 
 Immediate next steps (highest value):
 
@@ -474,8 +487,8 @@ Also worth doing on resume:
 ## How to resume
 
 1. Read this file.
-2. Read `manual/test-plan.md` for the canonical plan as it stands.
-3. Sample one matrix MD file (e.g. `manual/matrix-system.md` — shortest)
-   to recall the table format.
-4. Ask the user which follow-up to draft next, or whether the open
+2. Read `manual/test-plan.md` — the canonical, monolithic plan as it stands
+   (narrative + local-Docker runbook + all six 174-row matrix tables inline,
+   under the "Master test matrix" heading).
+3. Ask the user which follow-up to draft next, or whether the open
    questions have been resolved.
